@@ -1,0 +1,1040 @@
+---
+title: "2022-2023 MAC Mens Basketball Season"
+author: "Alan Morales"
+date:   "`r Sys.Date()`"
+output:
+  html_document:
+    toc: true
+    toc_float: true
+    toc_depth: 4
+    df_print: paged
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(
+	echo = FALSE,
+	message = FALSE,
+	warning = FALSE
+)
+```
+
+```{r libraries, message=FALSE, warning=FALSE, include=FALSE}
+#install.packages('devtools')
+library(class)
+library(devtools)
+install_github("vqv/ggbiplot")
+library(ggbiplot)
+library(webshot)
+library(nnet)
+webshot::install_phantomjs()
+library(glmnet)
+library(psych)
+library(factoextra)
+library(caret)
+library(car)
+library(readxl)
+library(kableExtra)
+library(dplyr)
+library(leaps)
+library(MASS)
+library(tidyverse) #Working with data
+library(readxl) #To get data out of excel files
+library(plotly)
+library(C50)
+library(tree)
+library(e1071)  
+library(rpart)       #for fitting decision trees
+library(ipred) 
+library(randomForest)
+```
+
+```{r data import, message=FALSE, warning=FALSE, include=FALSE}
+
+df1  <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/akron.xlsx")
+df2  <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/bgsu.xlsx")
+df3 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/bsu.xlsx")
+df4 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/buff.xlsx")
+df5 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/cmu.xlsx")
+df6 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/EMU.xlsx")
+df7 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/Kent_Stat.xlsx")
+df8 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/Miami_Ohio.xlsx")
+df9 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/niu.xlsx")
+df10 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/ohio.xlsx")
+df11 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/Toledo.xlsx")
+df12 <- read_xlsx("C:/Users/Aswif/OneDrive/Documents/Coding Projects/R/Projects/NCAA 2023/MAC/wmu.xlsx")
+
+
+```
+
+```{r variable manipulation}
+df <- rbind(df1,df2, df3,df4, df5,df6,df7,df8,df9,df10,df11,df12)
+df$Conf <- ifelse(df$Opp...4 == "Central Michigan"|
+                    df$Opp...4 == "Eastern Michigan"|
+                    df$Opp...4 == "Western Michigan"|
+                    df$Opp...4 == "Northern Illinois"|
+                    df$Opp...4 == "Akron"|
+                    df$Opp...4 == "Ball State"|
+                    df$Opp...4 == "Bowling Green State"|
+                    df$Opp...4 == "Toledo"|
+                    df$Opp...4 == "Miami (OH)"|
+                    df$Opp...4 == "Kent State"|
+                    df$Opp...4 == "Buffalo"|
+                    df$Opp...4 == "Ohio"
+                    ,1,0)
+
+df$Location <- df$...3 
+df$Location <- ifelse(is.na(df$Location), 1,0)
+df$Result <- substr(df$`W/L` ,1,1)
+df$Result <- ifelse(df$Result =="W", 1,0)
+df$team.pts <- df$Tm
+df$opp.pts <- df$Opp...7
+df$S_TPA <- df$S_3PA
+df$S_TP <- df$S_3P
+df$`S_TP%` <- df$`S_3P%`
+df$O_TPA <- df$O_3PA
+df$O_TP <- df$O_3P
+df$`O_TP%` <- df$`O_3P%`
+df$`TPAr` <- df$`3PAr`
+
+df$S_FG_Per <- df$`S_FG%`
+df$S_FT_Per <- df$`S_FT%`
+
+df$O_FG_Per <- df$`O_FG%`
+df$O_FT_Per <- df$`O_FT%`
+
+df$TS_Per        <- df$`TS%`
+df$TRB_Per       <- df$`TRB%`
+df$AST_Per       <- df$`AST%`
+df$STL_Per     <- df$`STL%`
+df$BLK_Per <- df$`BLK%`
+df$OFF_eFG_Per <- df$`OFF_eFG%`
+df$OFF_TOV_Per <- df$`OFF_TOV%`
+df$OFF_ORB_Per <- df$`OFF_ORB%`
+df$OFF_FT_FGA <- df$`OFF_FT/FGA`
+df$DEF_eFG_Per <- df$`DEF_eFG%`
+df$DEF_TOV_Per <- df$`DEF_TOV%`
+df$DEF_DRB <- df$`DEF_DRB%`
+df$DEF_FT_FGA <- df$`DEF_FT/FGA`
+
+df$S_TP_PER <- df$`S_TP%`
+df$O_TP_PER <- df$`O_TP%`
+```
+
+```{r variable deletion}
+drop <- c("Date", "...51","...56", "...3", "...24", "Opp...4", "W/L", "Tm", "Opp...7", "team.pts", "opp.pts", "ORtg", "DRtg", "S_3PA", "S_3P", "S_3P%", "O_3PA", "O_3P", "O_3P%", "3PAr","TS%","TRB%", "AST%", "STL%", "BLK%", "OFF_eFG%", "OFF_TOV%", "OFF_ORB%", "OFF_FT/FGA","DEF_eFG%", "DEF_TOV%", "DEF_DRB%", "DEF_FT/FGA", "S_FG%", "O_FG%", "S_FT%", "O_FT%","S_TP%", "O_TP%")
+df = df[,!(names(df) %in% drop)]
+
+df <-na.omit(df)
+#df <- rbind(df,dftrain)
+```
+
+```{r testing and training split}
+set.seed(5)
+#index <- which(df$G > 22)
+
+drop <- c("G")
+df = df[,!(names(df) %in% drop)]
+
+index <- createDataPartition(df$Result, p = .3,list = FALSE,times = 1)
+N = as.numeric(count(df))
+
+#NT = as.numeric(count(dftrain))
+#NC = N - NT+1
+#index <- (seq(NC,N,1))
+dft1 <- df[,!names(df) %in% c("gn")]
+
+
+
+team_train = dft1[-index,]
+team_test = dft1[index,]
+
+team_train$Result <- as.factor(team_train$Result)
+team_test$Result <- as.factor(team_test$Result)
+
+#LASSO T/T SET
+
+dummy <- model.matrix(~ ., data = dft1)
+
+dft.num <- data.frame(dummy[,-1])
+
+team_train_x = as.matrix(select(dft.num, -Result)[-index,])
+team_test_x  = as.matrix(select(dft.num, -Result)[index,])
+
+team_train_y = dft.num[-index, "Result"]
+team_test_y  = dft.num[index, "Result"]
+
+#stepwise 
+test.x = select(team_test, -Result) 
+test.y= team_test[,"Result"]
+
+```
+
+```{r environment deletion, message=FALSE, warning=FALSE}
+remove(df1t,df2t,df3t,df4t,df5t,df6t,df7t,df8t,df9t,df10t,df11t,df12t, df1,df2,df3,df4,df5,df6,df7,df8,df9,df10,df11,df12)
+```
+
+# The Data Set 
+
+* 51 features/variables. 
+    + 3 binary factors. (Results, Conf, and Location)
+* There are 389 observations/games. 
+```{r}
+head(df[1:5,])
+```
+
+
+
+# Goal
+
+**ANALYZE BINARY CLASSIFICATION MODEL PREDICTIONS**  
+  
+
+* For Classification, the binary variable "Result" is the categorical target variable
+
+* The model will categorize data into "1" for a win "0" for a loss
+
+* Utilize a confusion matrix to interpret test error rates and mis-classifications of model
+
+**Feature Reduction Techniques**
+
+    + Best Subset
+    + Forward Subset
+    + Backwards Subset
+    + Decision Tree
+    + Pruned Tree
+    + Principal Component Analysis
+    + Least Absolute Shrinkage and Selection Operator
+    
+## Motivations
+
+Identifying features will help coaches and players focus on certain aspects of the games. Whether it be formulating a game plan for opponents, refining a players shoot selection, or identifying offensive/defensive inefficiencies. 
+        
+# PCA
+
+Principal component Analysis is the sole dimensional reduction technique that does not retain initial features in the final model. This methodology uses a linear combination approach in creating components that will take the place of our original features. These components are linear combinations of all the input features in a dataset. They are combined in a way to capture the most variance in a the data.  
+
+```{r Eigen values, include=FALSE}
+pc <- prcomp(df[,-27],
+             center = TRUE,
+            scale. = TRUE)
+summary(pc)
+
+plot(pc$sdev^2)
+abline(h=1)
+
+pc$sdev^2
+```
+
+## Scree plot: Determining Components to use
+```{r Eigen values2 }
+fviz_eig(pc, 
+         addlabels = TRUE,
+         ncp  =19,
+         ylim = c(0, 10),
+         choice = "eigenvalue")
+
+```
+
+## Variable Determination 
+
+Using the Kaiser-Guttman rule, which specifies a factor or component should only be extracted if it explains at least as much variance as a single factor, eigenvalue greater than 1. The scree plot shows components 1-14 having eigenvalues greater than 1, those are the components that will be used.
+
+## Confusion Matrix KNN
+
+```{r}
+pc.matrix <- pc$x[,1:14]
+
+pc.matrix <- cbind(pc.matrix,df[,27])
+
+team.train = pc.matrix[-index,]
+team.test = pc.matrix[index,]
+
+team.train$Result <- as.factor(team.train$Result)
+team.test$Result <- as.factor(team.test$Result)
+
+  knn.pca <- knn(train=team.train, test=team.test, cl=team.train$Result, k=3)
+  
+    
+
+    knn.pca.cm <- confusionMatrix(as.factor(team.test$Result), as.factor(knn.pca))
+    knn.pca.te = 1- mean(knn.pca==team.test$Result)
+knn.pca.cm
+
+pca.obs.knn <- as.data.frame(which(team.test$Result!=knn.pca))
+colnames(pca.obs.knn) <-  "Obs"
+```
+
+## Confusion Matrix Logistic Regression 
+```{r}
+
+log.pca <- glm(Result~PC1+PC2+ PC3+PC4+PC5+PC6+PC7+PC8+PC9+PC10+PC11+PC12+PC13+PC14, data = pc.matrix, family = "binomial")
+
+ log.predictions <- predict(log.pca, team.test, type="response")
+
+log.pred<- ifelse(log.predictions >0.5, 1, 0)
+
+log.pca.te = 1-mean(log.pred==team_test_y)
+
+log.pca.cm <- confusionMatrix(as.factor(team_test_y), as.factor(log.pred))
+log.pca.cm   
+
+pca.obs.log <- as.data.frame(which(team_test_y!=log.pred))
+colnames(pca.obs.log) <-  "Obs"
+```
+
+# Lasso
+
+
+
+The Least Absolute Shrinkage and Selection Operator technique is a statistical formula that works ideally with data that would benefit from feature reduction. LASSO is an extension of Ordinary Least Squares regression, a regression method that minimizes the Residual Sum of Squares. 
+
+The RSS term is a measurement of discrepancies between the feature values, x, and the predicted values y. Here, the tuning parameter λ is what the focus is on. This parameter dictates the amount that a coefficient for a feature will be shrunken down too.  The benefit of using this parameter is that it allows the coefficients for variables to be shrunken down to zero and be removed from the final model if the variable has a significantly small influence on the prediction. 
+
+```{r}
+if(!require(installr)) {
+  install.packages("installr"); 
+  require(installr)
+} 
+
+```
+
+Using cross validation on the training data set, a plot of the mis classification  error rate is presented. Noticing that the left most dotted vertical line is the minimum lambda and the right one is one standard error away. This tells us how the number of features impacts the misclassification error rate. 
+
+## Choosing Lambda via cross validation 
+
+```{r}
+set.seed(5)
+team_lasso        = glmnet(x = as.matrix(dft.num[,-27]), y = as.matrix(dft.num[,27]), family = "binomial", type.measure = "class")
+
+team_lasso_cv <- cv.glmnet(x = as.matrix(dft.num[,-27]), y = as.matrix(dft.num[,27]), family = "binomial", type.measure = "class", nfolds = 10)
+
+#team_lasso
+
+#plot(team_lasso,xvar="lambda",label=TRUE)
+
+plot(team_lasso_cv)
+```
+
+
+```{r include=FALSE}
+log(team_lasso_cv$lambda.1se)
+team_lasso_cv$lambda.1se
+
+laco1 <- coef(team_lasso, s = team_lasso_cv$lambda.1se)
+laco1
+
+laco2 <- as.data.frame(summary(coef(team_lasso, s = team_lasso_cv$lambda.1se)))
+laco2
+```
+
+## Model and variable determination
+
+22 Features are extracted from the final LASSO model that penalizes terms that are deemed too insignificant to include in the model, therefore their coefficient values reduce to zero.
+
+```{r}
+laco1
+```
+
+
+## Confusion Matrix KNN
+
+```{r}
+team_train_lasso <- team_train[,c(1,3,11,12,14,15,19,20,22,26,29,31,37,38,40,41,43,44,46,47,48,51)]
+team_test_lasso  <- team_test[,c(1,3,11,12,14,15,19,20,22,26,29,31,37,38,40,41,43,44,46,47,48,51)]
+  knn.lasso <- knn(train=team_train_lasso, test=team_test_lasso, cl=team_train$Result, k=3)
+
+    knn.lasso.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.lasso))
+    knn.lasso.te = 1- mean(knn.lasso==team.test$Result)
+knn.lasso.cm
+
+lasso.obs.knn <- as.data.frame(which(team.test$Result!=knn.lasso))
+colnames(lasso.obs.knn) <-  "Obs"
+```
+
+## Confusion Matrix Logistic Regression 
+```{r}
+
+log.lasso <- glm(Result~ ., data =team_train[,c(1,3,11,12,14,15,19,20,22,26,27,29,31,37,38,40,41,43,44,46,47,48,51)], family = "binomial")
+
+ log.predictions <- predict(log.lasso, team_test[,c(1,3,11,12,14,15,19,20,22,26,29,31,37,38,40,41,43,44,46,47,48,51)], type="response")
+
+log.pred<- ifelse(log.predictions >0.5, 1, 0)
+
+log.lasso.te = 1-mean(log.pred==team_test_y)
+
+log.lasso.cm <- confusionMatrix(as.factor(team_test_y), as.factor(log.pred))
+log.lasso.cm   
+
+lasso.obs.log <- as.data.frame(which(team.test$Result!=log.pred))
+colnames(lasso.obs.log) <-  "Obs"
+```
+
+# Subset and Stepwise approach
+ 
+## Variable Determination 
+
+Best subset selection calculates the AIC value for every combination possible for a data set. This method can become computationally taxing as the number of explanatory features increases. Forward Stepwise starts with a clean slate, then adding variables one at a time and testing the improvement to the model. Backwards stepwise starts with all features and removes one variable at a time and testing the improvement of the model.
+
+
+```{r}
+glm.full <- glm(Result ~., data = team_train, family = binomial)
+glm.null <- glm(Result ~ 1, data = team_train, family = binomial)
+
+#summary(glm.full)
+#summary(glm.null)
+```
+
+```{r include=FALSE}
+back.model = step(glm.full, trace = 0)
+
+forw.model = step(glm.null, scope = list(lower = formula(glm.null), upper = formula(glm.full)), direction = "forward", trace = 0 )
+
+both.model = step(glm.null, scope = list(lower = formula(glm.null), upper = formula(glm.full)), direction = "both", trace = 0 )
+```
+
+Using subset selection techniques, the following results shows the three method's AIC values along with the models and features used. The lower the AIC Value the better the comparable model. 
+
+
+
+
+## Best Subset 
+
+AIC VALUE
+
+```{r}
+AIC(both.model)
+```
+
+MODEL 
+
+```{r}
+formula(both.model)
+```
+
+### Confusion Matrix Logistic Regression - Subset 
+
+The best subset methodology receives the following results. 
+```{r}
+prob.full <- both.model %>% predict(test.x, type = "response")
+
+pred.class.full<- ifelse(prob.full >0.5, 1, 0)
+log.sub.te = 1-mean(pred.class.full==team_test_y)
+
+log.sub.cm <- confusionMatrix(as.factor(team_test_y), as.factor(pred.class.full))
+
+log.sub.cm 
+
+sub.obs.log <- as.data.frame(which(team.test$Result!=pred.class.full))
+colnames(sub.obs.log) <-  "Obs"
+```
+
+
+### Confusion Matrix KNN - Subset
+
+```{r}
+team_train_sub <- team_train[,c(37,46,47,43,14,16,22)]
+team_test_sub  <- team_test[,c(37,46,47,43,14,16,22)]
+  knn.sub <- knn(train=team_train_sub, test=team_test_sub, cl=team_train$Result, k=3)
+
+    knn.sub.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.sub))
+    knn.sub.te = 1- mean(knn.sub==team.test$Result)
+knn.sub.cm
+
+sub.obs.knn <- as.data.frame(which(team_test_y!=knn.sub))
+colnames(sub.obs.knn) <-  "Obs"
+```
+
+## Backwards Stepwise 
+
+
+AIC VALUE
+
+```{r}
+AIC(back.model)
+```
+
+MODEL
+
+```{r}
+formula(back.model)
+```
+
+### Confusion Matrix Logistic Regression - Backwards
+
+The backwards stepwise methodology receives the following results. 
+```{r}
+prob.full1 <- back.model %>% predict(test.x, type = "response")
+
+pred.class.full1<- ifelse(prob.full1 >0.5, 1, 0)
+log.back.te = 1-mean(pred.class.full1==team_test_y)
+
+log.back.cm <-confusionMatrix(as.factor(team_test_y), as.factor(pred.class.full1))
+
+log.back.cm
+
+back.obs.log <- as.data.frame(which(pred.class.full1!=team_test_y))
+colnames(back.obs.log) <-  "Obs"
+```
+
+### Confusion Matrix KNN - Backwards
+
+```{r}
+team_train_back <- team_train[,c(13,14,22,29,33,37,42,46,48)]
+team_test_back  <- team_test[,c(13,14,22,29,33,37,42,46,48)]
+
+
+  knn.back <- knn(train=team_train_back, test=team_test_back, cl=team_train$Result, k=3)
+
+    knn.back.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.back))
+
+        knn.back.te = 1- mean(knn.back==team.test$Result)
+knn.back.cm
+
+back.obs.knn <- as.data.frame(which(team_test_y!=knn.back))
+colnames(back.obs.knn) <-  "Obs"
+```
+## Forward Stepwise
+
+AIC VALUE
+
+```{r}
+AIC(forw.model)
+```
+
+MODEL
+```{r}
+formula(forw.model)
+```
+
+### Confusion Matrix Logistic Regression - Forward
+
+```{r}
+prob.full2 <- forw.model %>% predict(test.x, type = "response")
+
+pred.class.full2<- ifelse(prob.full2 >0.5, 1, 0)
+log.for.te = 1-mean(pred.class.full2==team_test_y)
+
+log.for.cm <- confusionMatrix(as.factor(team_test_y), as.factor(pred.class.full2))
+
+log.for.cm
+
+for.obs.log <- as.data.frame(which(pred.class.full2!=team_test_y))
+colnames(for.obs.log) <-  "Obs"
+```
+
+### Confusion Matrix KNN - Forward
+
+```{r}
+
+team_train_for <- team_train[,c(37,42,47,43,38,14,16,22)]
+team_test_for  <- team_test[,c(37,42,47,43,38,14,16,22)]
+
+  knn.for <- knn(train=team_train_for, test=team_test_for, cl=team_train$Result, k=3)
+
+    knn.for.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.for))
+    knn.for.te = 1- mean(knn.for==team.test$Result)
+knn.for.cm
+
+for.obs.knn <- as.data.frame(which(team_test_y!=knn.for))
+colnames(for.obs.knn) <-  "Obs"
+```
+
+
+# Classfification Trees
+
+Classification trees intends to segment the predictor space into a small set of interpretable regions. It does this by implementing recursive binary splitting to grow the tree using the classification error rate as a criterion to split the tree. What does this mean exactly? To find the first split, all predictors are tested and the one with the greatest reduction in classification error rate is chosen to be the root node. This process does not care what will happen down the line at a future split, only what predictors are available. 
+
+## Decision Tree 
+
+### Variable Determination 
+
+By default for the package, the tree splitting will stop when each branch has less than 5 samples. 
+
+
+```{r}
+set.seed(5)
+
+dft_rf <- dft1
+
+dft_rf["Result"] <- as.factor(dft_rf$Result)
+dft_rf["Location"] <- as.factor(dft_rf$Location)
+dft_rf["Conf"] <- as.factor(dft_rf$Conf)
+
+
+dft_rf <- dft_rf[,!names(dft_rf) %in% c("gn")]
+train.dat = dft_rf[-index,]
+test.dat = dft_rf[index,]
+
+team_test_x  = as.data.frame(select(dft_rf, -Result)[index,])
+team_test_y  = dft_rf[index, "Result"]
+team_test_y$Result = ifelse(team_test_y == 1, 1,0)
+team_test_y = as.numeric(unlist(team_test_y))
+
+
+tree.bsu <- tree(Result ~ ., train.dat)
+tree.bsu.full <- tree(Result ~. , dft_rf)
+tree.full.sum <- summary(tree.bsu.full)
+tree.sum <- summary(tree.bsu)
+train.tree <- as.data.frame(tree.sum$misclass)
+
+train.tree <- train.tree[1,] / train.tree[2,]
+
+ta1 <- summary(tree.bsu)
+ta2 <- as.data.frame(as.character(ta1$used))
+
+tree.full.sum$used
+#plot(tree.bsu)
+#text(tree.bsu, pretty = 0)
+```
+
+### Confusion Matrix KNN
+
+```{r}
+team_train_tree <- team_train[,c(37,12,22,46,1,14,40,43,44,16,24,3,29,51)]
+team_test_tree <- team_test[,c(37,12,22,46,1,14,40,43,44,16,24,3,29,51)]
+  knn.tree <- knn(train=team_train_tree, test=team_test_tree, cl=team_train$Result, k=3)
+
+    knn.tree.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.tree))
+    knn.tree.te = 1- mean(knn.tree==team.test$Result)
+knn.tree.cm
+
+tree.obs.knn <- as.data.frame(which(team_test_y!=knn.tree))
+colnames(tree.obs.knn) <-  "Obs"
+```
+
+### Confusion Matrix Logistic Regression 
+```{r}
+
+log.tree <- glm(Result~ ., data = team_train[,c(27,37,12,22,46,1,14,40,43,44,16,24,3,29,51)], family = "binomial")
+
+ log.predictions <- predict(log.tree, team_test[,c(37,12,22,46,1,14,40,43,44,16,24,3,29,51)], type="response")
+
+log.pred<- ifelse(log.predictions >0.5, 1, 0)
+
+log.tree.te = 1-mean(log.pred==team_test_y)
+
+log.tree.cm <- confusionMatrix(as.factor(team_test_y), as.factor(log.pred))
+log.tree.cm   
+
+tree.obs.log <- as.data.frame(which(team_test_y!=log.pred))
+colnames(tree.obs.log) <-  "Obs"
+```
+### Decision Tree Classfication confusion matrix
+
+
+
+```{r}
+tree.bsu1 = predict(tree.bsu, team_test_x, type = "class")
+
+
+
+test.tree = 1 -mean(tree.bsu1==team_test_y)
+
+tree.obs <- as.data.frame(which(tree.bsu1!=team_test_y))
+
+confusionMatrix(as.factor(tree.bsu1), as.factor(team_test_y))
+
+colnames(tree.obs) <-  "Obs"
+```
+
+
+## Pruned Tree 
+
+Using cross validation via the cv.tree() function, the trees with 3+ terminal nodes results in the lowest error rate with below 60 cross validated errors. Due to 3 being first a pruned tree of 3 terminal nodes will be choosen for this pruned tree. 
+
+```{r }
+#prunning was the same as the random forest tree
+set.seed(4)
+cv.bsu = cv.tree(tree.bsu, FUN = prune.misclass)
+
+#cv.bsu$size
+plot(cv.bsu$size, cv.bsu$dev, type = "b")
+
+prune.bsu = prune.misclass(tree.bsu, best = 3)
+
+pruned.tree = predict(prune.bsu, team_test_x, type = "class")
+
+
+
+prune.sum <- summary(prune.bsu)
+prune.sum
+train.prune <- as.data.frame(prune.sum$misclass)
+
+train.prune <- train.prune[1,] / train.prune[2,]
+
+ta3 <- summary(prune.bsu)
+ta4 <- as.data.frame(as.character(ta3$used))
+```
+
+### Confusion Matrix KNN
+
+```{r}
+team_train_prune <- team_train[,c(37,12)]
+team_test_prune <- team_test[,c(37,12)]
+  knn.prune <- knn(train=team_train_prune, test=team_test_prune, cl=team_train$Result, k=3)
+
+    knn.prune.cm <- confusionMatrix(as.factor(team_test$Result), as.factor(knn.prune))
+    knn.prune.te = 1- mean(knn.prune==team.test$Result)
+knn.prune.cm
+
+prune.obs.knn <- as.data.frame(which(team_test_y!=knn.prune))
+colnames(prune.obs.knn) <-  "Obs"
+```
+
+### Confusion Matrix Logistic Regression 
+```{r}
+
+log.prune <- glm(Result~ ., data = team_train[,c(27,37,12)], family = "binomial")
+
+ log.predictions <- predict(log.prune, team_test[,c(37,12)], type="response")
+
+log.pred<- ifelse(log.predictions >0.5, 1, 0)
+
+log.prune.te = 1-mean(log.pred==team_test_y)
+
+log.prune.cm <- confusionMatrix(as.factor(team_test_y), as.factor(log.pred))
+log.prune.cm   
+
+prune.obs.log <- as.data.frame(which(team_test_y!=log.pred))
+colnames(prune.obs.log) <-  "Obs"
+```
+
+### Pruned Tree Classfication confusion matrix
+```{r}
+plot(prune.bsu)
+text(prune.bsu, pretty = 0)
+```
+
+
+```{r }
+confusionMatrix(as.factor(pruned.tree), as.factor(team_test_y))
+
+test.prune = 1 -mean(pruned.tree==team_test_y)
+
+prune.obs <- as.data.frame(which(pruned.tree!=team_test_y))
+
+colnames(prune.obs) <-  "Obs"
+```
+
+# Results
+
+## Feature Frequency
+
++ True Shooting percentage was the variable used in all of the models. 
+
++ Defensive variables comprised four of the six most predominant variables.  
+
+```{r}
+
+laco2 <- laco2[-1,]
+laco2$i <- laco2$i -1
+
+
+a1 <- laco2$i
+var <- as.data.frame(colnames(test.x))
+coef3 <- as.data.frame(var[a1,])
+coef3$Int <- laco2$x
+colnames(coef3) <- c("variables", "Int")
+coef3 <- as.data.frame(coef3[,-2])
+colnames(coef3) <- "variables"
+
+
+coef2 <- as.data.frame(coef(both.model))
+coef2 <- cbind(variables = rownames(coef2), coef2)
+coef2 <- coef2[-1,]
+coef2 <- as.data.frame(coef2[,-2])
+colnames(coef2) <- "variables"
+
+coef6 <- as.data.frame(coef(back.model))
+coef6 <- cbind(variables = rownames(coef6), coef6)
+coef6 <- coef6[-1,]
+coef6 <- as.data.frame(coef6[,-2])
+colnames(coef6) <- "variables"
+
+coef7 <- as.data.frame(coef(forw.model))
+coef7 <- cbind(variables = rownames(coef7), coef7)
+coef7 <- coef7[-1,]
+coef7 <- as.data.frame(coef7[,-2])
+colnames(coef7) <- "variables"
+
+coef4 <- ta2
+colnames(coef4) <- "variables"
+
+coef5 <- ta4
+colnames(coef5) <- "variables"
+
+coeftot <- rbind( coef2, coef3, coef4, coef5, coef6, coef7)
+coef.count <-coeftot %>% count(variables, sort = TRUE)
+colnames(coef.count) <- c("Feature", "Frequency used")
+coef.count
+
+```
+
+
+## Feature Table
+
+General table for the variables used by each feature reduction technique. 
+
+```{r}
+#var1 <- coef1
+var2 <- coef2
+var3 <- coef3
+var4 <- coef4
+var5 <- coef5
+var6 <- coef6
+var7 <- coef7
+
+max1 <- as.numeric(max(c(as.numeric(count(var5))
+                         ,as.numeric(count(var2))
+                         ,as.numeric(count(var3))
+                         ,as.numeric(count(var4))
+                         ,as.numeric(count(var6))
+                         ,as.numeric(count(var7))
+                         
+                         
+                         )))
+
+
+vartot <- list(Pruned_Tree   = c(unlist(var5), rep(NA, max1 - as.numeric(count(var5)))),
+               Decision_Tree   = c(unlist(var4), rep(NA, max1 - as.numeric(count(var4)))),
+               Two_Directional     = c(unlist(var2), rep(NA, max1 - as.numeric(count(var2)))),
+               Backwards_Stepwise = c(unlist(var6), rep(NA, max1 - as.numeric(count(var6)))),
+               Forward_Stepwise = c(unlist(var7), rep(NA, max1 - as.numeric(count(var7)))),
+                      LASSO           = c(unlist(var3), rep(NA, max1 - as.numeric(count(var3))))
+               )
+
+vartot1 <- as.data.frame(vartot)
+rownames(vartot1) <- 1:as.numeric(max1)
+
+#vartot1$VIF_Reduction <- sort(vartot1$VIF_Reduction, na.last  = TRUE)
+vartot1$Reg_Subsets <- sort(vartot1$Reg_Subsets, na.last  = TRUE)
+vartot1$Backwards_Stepwise <- sort(vartot1$Backwards_Stepwise, na.last  = TRUE)
+vartot1$Forward_Stepwise <- sort(vartot1$Forward_Stepwise, na.last  = TRUE)
+vartot1$LASSO <- sort(vartot1$LASSO, na.last  = TRUE)
+vartot1$Decision_Tree <- sort(vartot1$Decision_Tree, na.last  = TRUE)
+vartot1$Pruned_Tree <- sort(vartot1$Pruned_Tree, na.last  = TRUE)
+vartot1$Pruned_Tree <- sort(vartot1$Pruned_Tree, na.last  = TRUE)
+
+vartot1
+
+var.totals <- c(sum(!is.na(vartot1$Pruned_Tree)),
+                sum(!is.na(vartot1$Decision_Tree)),
+                sum(!is.na(vartot1$Two_Directional)),
+                sum(!is.na(vartot1$Backwards_Stepwise)),
+                sum(!is.na(vartot1$Forward_Stepwise)),
+                sum(!is.na(vartot1$LASSO)),14
+                )
+
+```
+```{r}
+te.knn <- rbind(knn.lasso.te, 
+                knn.pca.te, 
+                knn.back.te,
+                knn.for.te, 
+                knn.sub.te,
+                knn.tree.te,
+                knn.prune.te)
+mis.knn <- te.knn*117
+te.log<- rbind(log.lasso.te, 
+                log.pca.te, 
+                log.back.te,
+                log.for.te, 
+                log.sub.te,
+                log.tree.te,
+                log.prune.te)
+mis.log <- te.log*117
+
+feat.used <- rbind(count(var3), 14,count(var6), count(var7), count(var2), count(var4), count(var5) )
+feat.per <- feat.used/50
+
+te.df <- cbind(te.knn,mis.knn,te.log,mis.log, feat.used, feat.per)
+te.knn.df <- cbind(te.knn, mis.knn,feat.used, feat.per) 
+te.log.df <- cbind(te.log,mis.log,feat.used, feat.per)
+
+rownames(te.df) <- c("LASSO", "PCA","Backwards", "Forward","Best Subset", "Decision Tree", "Pruned Tree")
+colnames(te.df) <- c("KNN Test Error", "KNN Misclassified","LOG Test Error", "LOG Misclassified", "Features Used", "% of features used")
+
+rownames(te.knn.df) <- c("LASSO", "PCA","Backwards", "Forward","Best Subset", "Decision Tree", "Pruned Tree")
+colnames(te.knn.df) <- c("KNN Test Error", "KNN Misclassified", "Features Used", "% of features used")
+
+rownames(te.log.df) <- c("LASSO", "PCA","Backwards", "Forward","Best Subset", "Decision Tree", "Pruned Tree")
+colnames(te.log.df) <- c("LOG Test Error", "LOG Misclassified", "Features Used", "% of features used")
+```
+
+
+
+```{r include=FALSE}
+webshot::install_phantomjs()
+
+
+
+test.table <- te.df %>%
+  kbl() %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 30) %>%
+  save_kable(file = "table_1.png")
+
+test.table
+```
+
+
+
+## Result Tables
+
+
+
+```{r include=FALSE}
+coef.table <- coef.count[1:10,] %>%
+  kbl() %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 30) %>%
+    save_kable(file = "table_coef.png")
+coef.table
+```
+
+### KNN Error Results
+
+```{r }
+test.table3 <- te.knn.df %>%
+  kbl(caption = "KNN Results") %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 30) 
+test.table3
+```
+
+### Logistic Error Results
+
+```{r }
+test.table4 <- te.log.df %>%
+  kbl(caption = "Logisitc Results") %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 30) 
+test.table4
+
+```
+
+## Mis-Classified Observations
+
+**The following shows which observations, games, the models couldn't predict, along with the frequency of each**
+
+### KNN Mis-Classified  
+```{r}
+options(knitr.kable.NA = '')
+
+#n <- length(prune.obs)
+
+
+#length(tree.obs) <- n                      
+#length(both.obs) <- n
+#length(forw.obs) <- n
+#length(back.obs) <- n
+#length(lasso.obs) <- n
+#length(pca.obs) <- n
+
+obs.mis.knn <- rbind(prune.obs.knn, tree.obs.knn, sub.obs.knn, back.obs.knn, for.obs.knn, lasso.obs.knn, pca.obs.knn)
+obs.mis.log <- rbind(prune.obs.log, tree.obs.log, sub.obs.log, back.obs.log, for.obs.log, lasso.obs.log, pca.obs.log)
+
+
+
+coef.obs.knn <-obs.mis.knn %>% count(Obs, sort = TRUE)
+coef.obs.knn
+
+colnames(coef.obs.knn) <- c("Observation", "Frequency")
+head(coef.obs.knn,10) %>%
+  kbl() %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 35) %>%
+  save_kable(file = "table_knn_mis.png")
+```
+
+
+```{r}
+coef.obs.log <-obs.mis.log %>% count(Obs, sort = TRUE)
+coef.obs.log
+
+colnames(coef.obs.log) <- c("Observation", "Frequency")
+head(coef.obs.log,10) %>%
+  kbl() %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 35) %>%
+  save_kable(file = "table_log_mis.png")
+```
+
+
+```{r}
+obs.mis.tot <- rbind(prune.obs.log, tree.obs.log, sub.obs.log, back.obs.log, for.obs.log, lasso.obs.log, pca.obs.log,prune.obs.knn, tree.obs.knn, sub.obs.knn, back.obs.knn, for.obs.knn, lasso.obs.knn, pca.obs.knn)
+coef.obs.tot <-obs.mis.tot %>% count(Obs, sort = TRUE)
+coef.obs.tot
+
+colnames(coef.obs.tot) <- c("Observation", "Frequency")
+head(coef.obs.tot,10) %>%
+  kbl() %>%
+  kable_classic( html_font = "Cambria") %>%
+  kable_styling(font_size = 35) %>%
+  save_kable(file = "table_tot_mis.png")
+
+```
+
+
+```{r}
+df.plot <- data.frame(cbind(feat.used, te.log,te.knn))
+df.plot <- df.plot[order(df.plot$n),]
+plot(df.plot$n,df.plot$te.log, type = "o", col = "red", xlab = "Features Used", ylab = "Test Errors", ylim = c(0,.5), xlim = c(0,23))
+par(new =TRUE)
+plot(df.plot$n,df.plot$te.knn, type = "o", col = "blue", xlab = "Features Used", ylab = "Test Errors", ylim = c(0,.5), xlim = c(0,23))
+# Adding a legend
+legend("topright", legend = c("Logistic Errors", "KNN Errors"),
+       lwd = 3, col = c("red", "blue"))
+grid(nx = NULL, ny = NULL,
+     lty = 2, col = "gray", lwd = 2)
+```
+
+## EDA: Important Features
+
+The box plots take into account every observation/game. These seven features were included in at least 3 of the 7 models. 
+```{r}
+par(mfrow=c(1,3))
+boxplot(TS_Per~Result,data = df,col = c("orange","red"), main = "True Shooting Percentage")
+boxplot(DEF_eFG_Per~Result,data = df,col = c("orange","red"), main = "Defensive Effective FG Percentage")
+boxplot(DEF_TOV_Per~Result,data = df,col = c("orange","red"), main = "Defensive Turnover Percentage")
+boxplot(O_FT~Result,data = df,col = c("orange","red"), main = "Opponents Free Throws")
+boxplot(O_PF~Result,data = df,col = c("orange","red"), main = "Opponents Personal Fouls")
+boxplot(O_FG~Result,data = df,col = c("orange","red"), main = "Opponents Field Goals")
+boxplot(OFF_TOV_Per~Result,data = df,col = c("orange","red"), main = "Offensive Turnover Percentage")
+```
+
+The following are the trends for the feature to be on the winning side. For example, the higher the TS_Per is, the more likely it is the result will be a win. 
+
+TS_Per: Higher
+
+DEF_eFG_Per: Lower 
+
+DEF_TOV_Per: Higher
+
+O_FT: Lower
+
+O_PF:	Higher
+
+O_FG: Lower
+
+OFF_TOV_Per: Lower
+
+The following summary statistics take into account the 13  observations/games that 3 of the 7 models were not able to correctly predict. 
+
+```{r}
+summary(df[c(25,46,50,13,56,53,64,24,28,34,113,18,19,23,35,88,5,9,26,44),c("TS_Per" ,"DEF_eFG_Per","DEF_TOV_Per", "O_FT","O_PF", "O_FG", "OFF_TOV_Per")])
+```
+
+This summary statistics take into account all observations where the result was a 1, win. 
+
+```{r}
+dfwin <- df[which(df$Result == 1),]
+dfwin <- dfwin[,c("TS_Per" ,"DEF_eFG_Per","DEF_TOV_Per", "O_FT","O_PF", "O_FG", "OFF_TOV_Per")]
+summary(dfwin)
+```
+
+
+These are observations of the 20 most misclassified observations. 
+```{r}
+df[c(25,46,50,13,56,53,64,24,28,34,113,18,19,23,35,88,5,9,26,44),c("TS_Per" ,"DEF_eFG_Per","DEF_TOV_Per", "O_FT","O_PF", "O_FG", "OFF_TOV_Per")]
+```
